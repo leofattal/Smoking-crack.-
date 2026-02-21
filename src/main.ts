@@ -14,6 +14,10 @@ const config: Phaser.Types.Core.GameConfig = {
   parent: 'game-container',
   backgroundColor: `#${COLORS.background.toString(16).padStart(6, '0')}`,
   pixelArt: true,
+  input: {
+    activePointers: 3,
+    touch: { capture: true },
+  },
   scale: {
     mode: Phaser.Scale.FIT,
     autoCenter: Phaser.Scale.CENTER_BOTH,

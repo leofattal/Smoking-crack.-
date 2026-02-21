@@ -99,13 +99,15 @@ export class GameOverScene extends Phaser.Scene {
     });
 
     // Also allow SPACE to restart
-    this.input.keyboard!.once('keydown-SPACE', () => {
-      this.registry.set('gameState', createInitialGameState());
-      this.scene.start('MenuScene');
-    });
+    if (this.input.keyboard) {
+      this.input.keyboard.once('keydown-SPACE', () => {
+        this.registry.set('gameState', createInitialGameState());
+        this.scene.start('MenuScene');
+      });
+    }
 
     // Blinking prompt
-    const restartHint = this.add.text(cx, cy + 220, 'Press SPACE to try again', {
+    const restartHint = this.add.text(cx, cy + 220, 'Tap or press SPACE to try again', {
       fontSize: '12px',
       fontFamily: 'monospace',
       color: '#666666',

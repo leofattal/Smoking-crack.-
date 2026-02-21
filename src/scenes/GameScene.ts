@@ -1067,20 +1067,21 @@ export class GameScene extends Phaser.Scene {
 
   // ==================== INPUT ====================
   private setupInput(): void {
-    this.cursors = this.input.keyboard!.createCursorKeys();
-    this.wasdKeys = {
-      W: this.input.keyboard!.addKey(Phaser.Input.Keyboard.KeyCodes.W),
-      A: this.input.keyboard!.addKey(Phaser.Input.Keyboard.KeyCodes.A),
-      S: this.input.keyboard!.addKey(Phaser.Input.Keyboard.KeyCodes.S),
-      D: this.input.keyboard!.addKey(Phaser.Input.Keyboard.KeyCodes.D),
-    };
-    this.spaceKey = this.input.keyboard!.addKey(Phaser.Input.Keyboard.KeyCodes.SPACE);
-
-    // Detect touch device
-    this.isTouchDevice = 'ontouchstart' in window || navigator.maxTouchPoints > 0;
-    if (this.isTouchDevice) {
-      this.createTouchControls();
+    const kb = this.input.keyboard;
+    if (kb) {
+      this.cursors = kb.createCursorKeys();
+      this.wasdKeys = {
+        W: kb.addKey(Phaser.Input.Keyboard.KeyCodes.W),
+        A: kb.addKey(Phaser.Input.Keyboard.KeyCodes.A),
+        S: kb.addKey(Phaser.Input.Keyboard.KeyCodes.S),
+        D: kb.addKey(Phaser.Input.Keyboard.KeyCodes.D),
+      };
+      this.spaceKey = kb.addKey(Phaser.Input.Keyboard.KeyCodes.SPACE);
     }
+
+    // Always show touch controls so mobile works
+    this.isTouchDevice = true;
+    this.createTouchControls();
   }
 
   private createTouchControls(): void {
@@ -1166,15 +1167,17 @@ export class GameScene extends Phaser.Scene {
   }
 
   private handleInput(): void {
-    // Keyboard input
-    if (this.cursors.up.isDown || this.wasdKeys.W.isDown) {
-      this.player.queuedDirection = Direction.UP;
-    } else if (this.cursors.down.isDown || this.wasdKeys.S.isDown) {
-      this.player.queuedDirection = Direction.DOWN;
-    } else if (this.cursors.left.isDown || this.wasdKeys.A.isDown) {
-      this.player.queuedDirection = Direction.LEFT;
-    } else if (this.cursors.right.isDown || this.wasdKeys.D.isDown) {
-      this.player.queuedDirection = Direction.RIGHT;
+    // Keyboard input (only if keyboard exists)
+    if (this.cursors) {
+      if (this.cursors.up.isDown || this.wasdKeys.W.isDown) {
+        this.player.queuedDirection = Direction.UP;
+      } else if (this.cursors.down.isDown || this.wasdKeys.S.isDown) {
+        this.player.queuedDirection = Direction.DOWN;
+      } else if (this.cursors.left.isDown || this.wasdKeys.A.isDown) {
+        this.player.queuedDirection = Direction.LEFT;
+      } else if (this.cursors.right.isDown || this.wasdKeys.D.isDown) {
+        this.player.queuedDirection = Direction.RIGHT;
+      }
     }
 
     // Touch D-pad input
@@ -1183,7 +1186,7 @@ export class GameScene extends Phaser.Scene {
     }
 
     // SPACE = smoke crack (only during sell phase, if you have some)
-    if (Phaser.Input.Keyboard.JustDown(this.spaceKey)) {
+    if (this.spaceKey && Phaser.Input.Keyboard.JustDown(this.spaceKey)) {
       this.smokeCrack();
     }
   }

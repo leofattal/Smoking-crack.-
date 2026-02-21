@@ -317,37 +317,35 @@ export class ShootoutScene extends Phaser.Scene {
       this.drawTimer = 0;
 
       // Listen for click/tap
-      const clickHandler = () => {
+      const cleanup = () => {
+        this.input.off('pointerdown', clickHandler);
+        if (this.input.keyboard) {
+          this.input.keyboard.off('keydown', keyHandler as any);
+        }
+      };
+
+      const handleShot = () => {
         if (!this.drawWindowActive || this.playerShot) return;
         this.playerShot = true;
         this.drawWindowActive = false;
-        this.input.off('pointerdown', clickHandler);
-
-        // Check if player wins based on gun accuracy
+        cleanup();
         const won = Math.random() < this.gun.accuracy;
         this.resolveShootout(won, countText, instructText);
       };
+
+      const clickHandler = () => handleShot();
+      const keyHandler = () => handleShot();
+
       this.input.on('pointerdown', clickHandler);
-
-      // Also listen for spacebar or any key
-      const keyHandler = (event: KeyboardEvent) => {
-        if (!this.drawWindowActive || this.playerShot) return;
-        this.playerShot = true;
-        this.drawWindowActive = false;
-        this.input.keyboard!.off('keydown', keyHandler as any);
-        this.input.off('pointerdown', clickHandler);
-
-        const won = Math.random() < this.gun.accuracy;
-        this.resolveShootout(won, countText, instructText);
-      };
-      this.input.keyboard!.on('keydown', keyHandler);
+      if (this.input.keyboard) {
+        this.input.keyboard.on('keydown', keyHandler);
+      }
 
       // If player doesn't click in time, they lose
       this.time.delayedCall(this.gun.drawWindow, () => {
         if (this.playerShot) return;
         this.drawWindowActive = false;
-        this.input.off('pointerdown', clickHandler);
-        this.input.keyboard!.off('keydown', keyHandler as any);
+        cleanup();
         this.resolveShootout(false, countText, instructText);
       });
     });

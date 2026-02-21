@@ -37,21 +37,45 @@ export class MenuScene extends Phaser.Scene {
       gfx.fillCircle(cx + 40 + i * 22, cy + 20, 4);
     }
 
-    // Instructions
-    this.add.text(cx, cy + 100, 'PRESS SPACE TO START', {
-      fontSize: '18px',
+    // Start button (works on both mobile and desktop)
+    const btnY = cy + 100;
+    const startBtn = this.add.rectangle(cx, btnY, 280, 50, 0x006600)
+      .setInteractive({ useHandCursor: true })
+      .setStrokeStyle(2, 0x00ff00);
+
+    const startText = this.add.text(cx, btnY, 'TAP TO START', {
+      fontSize: '20px',
       fontFamily: 'monospace',
-      color: '#FFFFFF',
+      color: '#00FF00',
+      fontStyle: 'bold',
     }).setOrigin(0.5);
 
-    this.add.text(cx, cy + 140, 'ARROW KEYS / WASD to move', {
-      fontSize: '14px',
+    // Blink effect
+    this.tweens.add({
+      targets: startText,
+      alpha: 0.3,
+      duration: 800,
+      yoyo: true,
+      repeat: -1,
+    });
+
+    const startGame = () => {
+      this.scene.start('GameScene');
+    };
+
+    startBtn.on('pointerover', () => startBtn.setFillStyle(0x008800));
+    startBtn.on('pointerout', () => startBtn.setFillStyle(0x006600));
+    startBtn.on('pointerdown', startGame);
+
+    // Instructions
+    this.add.text(cx, cy + 150, 'Arrow Keys / WASD to move', {
+      fontSize: '13px',
       fontFamily: 'monospace',
       color: '#888888',
     }).setOrigin(0.5);
 
-    this.add.text(cx, cy + 165, 'SPACE to use power-up', {
-      fontSize: '14px',
+    this.add.text(cx, cy + 172, 'SPACE to smoke crack', {
+      fontSize: '13px',
       fontFamily: 'monospace',
       color: '#888888',
     }).setOrigin(0.5);
@@ -64,18 +88,9 @@ export class MenuScene extends Phaser.Scene {
       fontStyle: 'italic',
     }).setOrigin(0.5);
 
-    // Blink "PRESS SPACE" text
-    this.tweens.add({
-      targets: this.children.list[3], // the press space text
-      alpha: 0.3,
-      duration: 800,
-      yoyo: true,
-      repeat: -1,
-    });
-
-    // Input
-    this.input.keyboard!.once('keydown-SPACE', () => {
-      this.scene.start('GameScene');
-    });
+    // Keyboard: SPACE also starts
+    if (this.input.keyboard) {
+      this.input.keyboard.once('keydown-SPACE', startGame);
+    }
   }
 }
