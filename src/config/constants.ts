@@ -180,6 +180,43 @@ export const SKINS: SkinDef[] = [
   { id: 'rainbow', name: 'Rainbow', color: 0xffffff, cost: 1000, rainbow: true },
 ];
 
+// === GUNS ===
+export interface GunDef {
+  id: string;
+  name: string;
+  emoji: string;
+  cost: number;
+  /** Time window in ms the player has to click during the DRAW phase */
+  drawWindow: number;
+  /** Chance to win the shootout if player clicks in time (0-1) */
+  accuracy: number;
+  description: string;
+}
+
+export const GUNS: GunDef[] = [
+  { id: 'fists', name: 'Bare Fists', emoji: '👊', cost: 0, drawWindow: 400, accuracy: 0.25, description: 'Better than nothing' },
+  { id: 'pistol', name: '9mm Pistol', emoji: '🔫', cost: 150, drawWindow: 600, accuracy: 0.5, description: 'Standard street piece' },
+  { id: 'shotgun', name: 'Sawed-Off', emoji: '💥', cost: 400, drawWindow: 800, accuracy: 0.7, description: 'Spread makes it easier' },
+  { id: 'uzi', name: 'Uzi', emoji: '🔥', cost: 700, drawWindow: 1000, accuracy: 0.85, description: 'Spray and pray' },
+  { id: 'ak47', name: 'AK-47', emoji: '☠️', cost: 1200, drawWindow: 1200, accuracy: 0.95, description: 'One shot, one kill' },
+];
+
+// === SHOOTOUT LINES ===
+export const SHOOTOUT_WIN_LINES = [
+  'Not today, pig!',
+  'You picked the wrong one!',
+  'Tell your boys I said hi!',
+  'Bang bang!',
+  'Too slow, officer!',
+];
+
+export const SHOOTOUT_LOSE_LINES = [
+  'Drop the weapon!',
+  'Got you now, punk!',
+  'End of the line!',
+  'Should\'ve stayed home!',
+];
+
 // === POWER-UPS ===
 export enum PowerUpType {
   SPEED_BOOST = 'SPEED_BOOST',
@@ -222,6 +259,8 @@ export interface GameState {
   selectedSkin: string;
   ownedSkins: string[];
   getawayCarUsedToday: boolean;
+  currentGun: string;
+  ownedGuns: string[];
 }
 
 export function createInitialGameState(): GameState {
@@ -242,5 +281,7 @@ export function createInitialGameState(): GameState {
     selectedSkin: 'default',
     ownedSkins: ['default'],
     getawayCarUsedToday: false,
+    currentGun: 'fists',
+    ownedGuns: ['fists'],
   };
 }

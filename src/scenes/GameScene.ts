@@ -853,24 +853,19 @@ export class GameScene extends Phaser.Scene {
     gfx.fillStyle(0xffffff, 0.15);
     gfx.fillCircle(x - 3, y - 4, R * 0.5);
 
-    // === LEATHER JACKET (wraps around the bottom half of the ball) ===
+    // === LEATHER JACKET (dark band on lower half of the ball) ===
     const jacketColor = isHigh ? 0x333333 : 0x1a1a1a;
-    gfx.fillStyle(jacketColor);
-    // Jacket is a horizontal band across the lower half
-    gfx.slice(x, y, R + 1, baseAngle + Math.PI * 0.35, baseAngle + Math.PI * 0.65, true);
+    // Draw jacket as a lower-half arc that wraps the body
+    gfx.fillStyle(jacketColor, 0.7);
+    gfx.slice(x, y, R, Math.PI * 0.15, Math.PI * 0.85, false);
     gfx.fillPath();
-    // Collar pops on the sides
+    // Collar on the sides (small rectangles)
     gfx.fillStyle(0x2a2a2a);
-    gfx.fillRect(x - R + 2, y - 3, 4, 6);
-    gfx.fillRect(x + R - 6, y - 3, 4, 6);
-    // Zipper down the front
+    gfx.fillRect(x - R + 1, y - 3, 4, 5);
+    gfx.fillRect(x + R - 5, y - 3, 4, 5);
+    // Zipper line
     gfx.fillStyle(0xaaaaaa, 0.5);
-    if (facingRight || facingLeft) {
-      const zx = facingLeft ? x - R + 4 : x + R - 4;
-      gfx.fillRect(zx, y - 2, 1, 8);
-    } else {
-      gfx.fillRect(x - 0.5, facingUp ? y + R - 6 : y - R + 2, 1, 8);
-    }
+    gfx.fillRect(x, y + 2, 1, R - 4);
 
     // === GOLD CHAIN (dangles from the ball) ===
     gfx.fillStyle(0xffd700);
@@ -1322,16 +1317,13 @@ export class GameScene extends Phaser.Scene {
 
   private tryMoveInDirection(entity: GridEntity, dir: Direction, isPlayer: boolean): boolean {
     if (dir === Direction.NONE) return false;
-    const delta = DIR_DELTA[dir];
-    const nextX = entity.gridX + delta.dx;
-    const nextY = entity.gridY + delta.dy;
+    const dd = DIR_DELTA[dir];
+    const nextX = entity.gridX + dd.dx;
+    const nextY = entity.gridY + dd.dy;
 
-    let finalX = nextX;
-    if (nextX < 0) finalX = MAZE_COLS - 1;
-    else if (nextX >= MAZE_COLS) finalX = 0;
-
-    if (isWalkableTile(finalX, nextY, isPlayer)) {
-      entity.targetGridX = finalX;
+    // No X-wrapping here — tunnels are handled by checkTunnel after arrival
+    if (isWalkableTile(nextX, nextY, isPlayer)) {
+      entity.targetGridX = nextX;
       entity.targetGridY = nextY;
       entity.direction = dir;
       entity.isMoving = true;
@@ -1682,21 +1674,24 @@ export class GameScene extends Phaser.Scene {
         continue;
       }
 
-      // BUSTED!
-      this.getCaught();
+      // SHOOTOUT!
+      this.startShootout();
       return;
     }
   }
 
-  // ==================== GETTING CAUGHT ====================
-  private getCaught(): void {
+  // ==================== SHOOTOUT TRANSITION ====================
+  private startShootout(): void {
     if (this.transitioning) return;
+    this.transitioning = true;
+    this.dayActive = false;
 
     // Getaway Car — one free escape per day
     if (this.gameState.upgrades.getawayCar && !this.gameState.getawayCarUsedToday) {
       this.gameState.getawayCarUsedToday = true;
+      this.transitioning = false;
+      this.dayActive = true;
 
-      // Teleport player to spawn point
       const spawn = findPlayerSpawn();
       this.player.gridX = spawn.x;
       this.player.gridY = spawn.y;
@@ -1719,6 +1714,47 @@ export class GameScene extends Phaser.Scene {
       return;
     }
 
+    // Dramatic slowdown + scene transition to shootout
+    this.cameras.main.shake(300, 0.01);
+    this.cameras.main.setZoom(1);
+    this.crackOverlay.setAlpha(0);
+    this.player.inventory = 0;
+
+    // "CONFRONTATION" flash
+    const confrontText = this.add.text(CANVAS_WIDTH / 2, CANVAS_HEIGHT / 2, '⚔️ CONFRONTATION!', {
+      fontSize: '28px', fontFamily: 'monospace', color: '#FF4444', fontStyle: 'bold',
+      stroke: '#000000', strokeThickness: 4,
+    }).setOrigin(0.5).setDepth(100);
+
+    if (window.speechSynthesis) {
+      window.speechSynthesis.cancel();
+      const utt = new SpeechSynthesisUtterance('Hold it right there!');
+      utt.rate = 0.9; utt.pitch = 0.5; utt.volume = 1;
+      const voices = window.speechSynthesis.getVoices();
+      const copVoice = voices.find(v => v.name.includes('Tom') || v.name.includes('Daniel') || v.name.includes('Ralph'));
+      if (copVoice) utt.voice = copVoice;
+      window.speechSynthesis.speak(utt);
+    }
+
+    // Slow zoom and fade to shootout scene
+    this.tweens.add({
+      targets: this.cameras.main, zoom: 1.3,
+      duration: 1200, ease: 'Sine.easeIn',
+    });
+
+    this.time.delayedCall(1500, () => {
+      this.cameras.main.fadeOut(500, 0, 0, 0);
+    });
+
+    this.time.delayedCall(2000, () => {
+      this.registry.set('gameState', this.gameState);
+      this.scene.start('ShootoutScene');
+    });
+  }
+
+  // ==================== GETTING CAUGHT (direct arrest, no shootout) ====================
+  private getCaught(): void {
+    if (this.transitioning) return;
     this.transitioning = true;
     this.dayActive = false;
 
@@ -1732,19 +1768,120 @@ export class GameScene extends Phaser.Scene {
     this.cameras.main.setZoom(1);
     this.crackOverlay.setAlpha(0);
 
-    const bustedText = this.add.text(CANVAS_WIDTH / 2, CANVAS_HEIGHT / 2, '🚔 BUSTED! 🚔', {
+    // === ARREST ANIMATION ===
+    // Find the cop that caught the player
+    const arrestCop = this.cops.find(c =>
+      c.state !== CopState.IN_HOUSE && c.gridX === this.player.gridX && c.gridY === this.player.gridY,
+    );
+
+    // "BUSTED" text
+    const bustedText = this.add.text(CANVAS_WIDTH / 2, CANVAS_HEIGHT / 2 - 40, '🚔 BUSTED! 🚔', {
       fontSize: '42px', fontFamily: 'monospace', color: '#FF0000', fontStyle: 'bold',
       stroke: '#000000', strokeThickness: 4,
     }).setOrigin(0.5).setDepth(100);
 
     if (cashLoss > 0) {
-      this.add.text(CANVAS_WIDTH / 2, CANVAS_HEIGHT / 2 + 50, `-$${cashLoss}`, {
+      const lossText = this.add.text(CANVAS_WIDTH / 2, CANVAS_HEIGHT / 2 + 10, `-$${cashLoss}`, {
         fontSize: '24px', fontFamily: 'monospace', color: '#FF4444', fontStyle: 'bold',
       }).setOrigin(0.5).setDepth(100);
+      this.tweens.add({ targets: lossText, alpha: 0, delay: 1500, duration: 500 });
     }
 
-    this.time.delayedCall(2000, () => {
-      bustedText.destroy();
+    // TTS: cop says something
+    if (window.speechSynthesis) {
+      const utt = new SpeechSynthesisUtterance("You're going to jail!");
+      utt.rate = 0.9; utt.pitch = 0.5; utt.volume = 1;
+      const voices = window.speechSynthesis.getVoices();
+      const copVoice = voices.find(v => v.name.includes('Tom') || v.name.includes('Daniel') || v.name.includes('Ralph'));
+      if (copVoice) utt.voice = copVoice;
+      window.speechSynthesis.speak(utt);
+    }
+
+    // Handcuff effect on player — player turns grey and stops
+    this.player.container.setAlpha(0.7);
+
+    // Create a cop escort if we found the arresting cop
+    const escortCop = arrestCop ? arrestCop.container : null;
+
+    // Prison is off-screen to the right
+    const prisonX = CANVAS_WIDTH + 40;
+    const prisonY = this.player.container.y;
+
+    // Show "handcuffs" text above player
+    const cuffText = this.add.text(
+      this.player.container.x, this.player.container.y - 30, '🔗',
+      { fontSize: '16px' },
+    ).setOrigin(0.5).setDepth(101);
+
+    // Animate: cop drags player to prison (off screen right)
+    const walkDuration = 2000;
+
+    // Player walks to prison
+    this.tweens.add({
+      targets: this.player.container,
+      x: prisonX, y: prisonY,
+      duration: walkDuration,
+      ease: 'Linear',
+    });
+
+    // Handcuff icon follows player
+    this.tweens.add({
+      targets: cuffText,
+      x: prisonX, y: prisonY - 30,
+      duration: walkDuration,
+      ease: 'Linear',
+    });
+
+    // Cop follows right behind
+    if (escortCop) {
+      this.tweens.add({
+        targets: escortCop,
+        x: prisonX - 30, y: prisonY,
+        duration: walkDuration,
+        ease: 'Linear',
+      });
+    }
+
+    // Red/blue flashing overlay during arrest
+    let flashCount = 0;
+    const flashTimer = this.time.addEvent({
+      delay: 200,
+      repeat: Math.floor(walkDuration / 200),
+      callback: () => {
+        flashCount++;
+        const isRed = flashCount % 2 === 0;
+        this.cameras.main.flash(100, isRed ? 255 : 0, 0, isRed ? 0 : 255);
+      },
+    });
+
+    // Prison bars slide in from right
+    this.time.delayedCall(walkDuration * 0.6, () => {
+      // Draw prison bars at the right edge
+      const barsGfx = this.add.graphics().setDepth(95);
+      barsGfx.fillStyle(0x333333);
+      for (let i = 0; i < 8; i++) {
+        barsGfx.fillRect(CANVAS_WIDTH - 80 + i * 12, HUD_HEIGHT, 4, CANVAS_HEIGHT - HUD_HEIGHT);
+      }
+      // Cross bars
+      barsGfx.fillRect(CANVAS_WIDTH - 80, HUD_HEIGHT + 40, 90, 4);
+      barsGfx.fillRect(CANVAS_WIDTH - 80, CANVAS_HEIGHT - 80, 90, 4);
+      barsGfx.setAlpha(0);
+      this.tweens.add({ targets: barsGfx, alpha: 1, duration: 400 });
+    });
+
+    // Busted text fades, then scene transition
+    this.tweens.add({
+      targets: bustedText, alpha: 0,
+      delay: walkDuration - 500, duration: 500,
+    });
+
+    // Fade to black then transition
+    this.time.delayedCall(walkDuration + 500, () => {
+      this.cameras.main.fadeOut(500, 0, 0, 0);
+    });
+
+    this.time.delayedCall(walkDuration + 1000, () => {
+      flashTimer.destroy();
       this.gameState.day++;
       if (this.gameState.lives <= 0) {
         this.registry.set('gameState', this.gameState);
@@ -1844,8 +1981,11 @@ export class GameScene extends Phaser.Scene {
   }
 
   // ==================== MAIN UPDATE ====================
-  update(_time: number, delta: number): void {
+  update(_time: number, rawDelta: number): void {
     if (!this.dayActive) return;
+
+    // Clamp delta to prevent huge jumps when tab loses focus
+    const delta = Math.min(rawDelta, 100);
 
     this.handleInput();
     this.updatePlayerMovement(delta);

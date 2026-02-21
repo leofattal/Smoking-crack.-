@@ -1,5 +1,5 @@
 import Phaser from 'phaser';
-import { CANVAS_WIDTH, CANVAS_HEIGHT, GameState, SKINS, SkinDef } from '../config/constants';
+import { CANVAS_WIDTH, CANVAS_HEIGHT, GameState, SKINS, SkinDef, GUNS, GunDef } from '../config/constants';
 import { UPGRADES, ADVERTISING_TIERS } from '../config/upgrades';
 
 export class ShopScene extends Phaser.Scene {
@@ -58,6 +58,17 @@ export class ShopScene extends Phaser.Scene {
 
     for (let i = 0; i < ADVERTISING_TIERS.length; i++) {
       this.createAdRow(ADVERTISING_TIERS[i], y, i);
+      y += ROW;
+    }
+
+    y += 10;
+
+    // === WEAPONS SECTION ===
+    this.addSectionHeader('WEAPONS', y);
+    y += 22;
+
+    for (let i = 0; i < GUNS.length; i++) {
+      this.createGunRow(GUNS[i], y);
       y += ROW;
     }
 
@@ -205,6 +216,53 @@ export class ShopScene extends Phaser.Scene {
         this.refreshShop();
       });
     }
+  }
+
+  private createGunRow(gun: GunDef, y: number): void {
+    const owned = this.gameState.ownedGuns.includes(gun.id);
+    const equipped = this.gameState.currentGun === gun.id;
+
+    const bg = this.add.rectangle(CANVAS_WIDTH / 2, y + 18, CANVAS_WIDTH - 24, 42, 0x1c1c38)
+      .setStrokeStyle(1, equipped ? 0xffd700 : 0x333355);
+    this.content.add(bg);
+
+    const nameT = this.add.text(18, y + 6, `${gun.emoji} ${gun.name}`, {
+      fontSize: '13px', fontFamily: 'monospace',
+      color: equipped ? '#FFD700' : '#FFFFFF', fontStyle: 'bold',
+    });
+    this.content.add(nameT);
+
+    const descT = this.add.text(18, y + 22, `${gun.description} · ${Math.round(gun.accuracy * 100)}% accuracy`, {
+      fontSize: '10px', fontFamily: 'monospace', color: '#888888',
+    });
+    this.content.add(descT);
+
+    let statusText = `$${gun.cost}`;
+    let statusColor = this.gameState.cash >= gun.cost ? '#FFD700' : '#FF4444';
+    if (owned && equipped) { statusText = 'EQUIPPED'; statusColor = '#FFD700'; }
+    else if (owned) { statusText = 'EQUIP'; statusColor = '#00FF00'; }
+
+    const costT = this.add.text(CANVAS_WIDTH - 15, y + 6, statusText, {
+      fontSize: '13px', fontFamily: 'monospace', color: statusColor, fontStyle: 'bold',
+    }).setOrigin(1, 0);
+    this.content.add(costT);
+
+    bg.setInteractive({ useHandCursor: true });
+    bg.on('pointerover', () => bg.setFillStyle(0x282850));
+    bg.on('pointerout', () => bg.setFillStyle(equipped ? 0x2a2a44 : 0x1c1c38));
+    bg.on('pointerdown', () => {
+      if (owned) {
+        this.gameState.currentGun = gun.id;
+        this.refreshShop();
+      } else {
+        if (this.gameState.cash < gun.cost) { this.flashCash(); return; }
+        this.gameState.cash -= gun.cost;
+        this.gameState.ownedGuns.push(gun.id);
+        this.gameState.currentGun = gun.id;
+        this.cameras.main.flash(150, 0, 255, 0);
+        this.refreshShop();
+      }
+    });
   }
 
   private createSkinCard(skin: SkinDef, x: number, y: number, w: number, h: number): void {
