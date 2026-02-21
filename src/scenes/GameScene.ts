@@ -124,6 +124,8 @@ export class GameScene extends Phaser.Scene {
   private cursors!: Phaser.Types.Input.Keyboard.CursorKeys;
   private wasdKeys!: { W: Phaser.Input.Keyboard.Key; A: Phaser.Input.Keyboard.Key; S: Phaser.Input.Keyboard.Key; D: Phaser.Input.Keyboard.Key };
   private spaceKey!: Phaser.Input.Keyboard.Key;
+  private touchDirection: Direction = Direction.NONE;
+  private isTouchDevice: boolean = false;
 
   // HUD
   private phaseText!: Phaser.GameObjects.Text;
@@ -1073,9 +1075,98 @@ export class GameScene extends Phaser.Scene {
       D: this.input.keyboard!.addKey(Phaser.Input.Keyboard.KeyCodes.D),
     };
     this.spaceKey = this.input.keyboard!.addKey(Phaser.Input.Keyboard.KeyCodes.SPACE);
+
+    // Detect touch device
+    this.isTouchDevice = 'ontouchstart' in window || navigator.maxTouchPoints > 0;
+    if (this.isTouchDevice) {
+      this.createTouchControls();
+    }
+  }
+
+  private createTouchControls(): void {
+    const depth = 120;
+    const alpha = 0.35;
+
+    // === D-PAD (bottom-left) ===
+    const padCenterX = 80;
+    const padCenterY = CANVAS_HEIGHT - 80;
+    const btnSize = 48;
+    const gap = 2;
+
+    // D-pad background circle
+    const padBg = this.add.circle(padCenterX, padCenterY, 72, 0x000000, 0.2).setDepth(depth - 1);
+
+    // UP
+    const upBtn = this.add.rectangle(padCenterX, padCenterY - btnSize - gap, btnSize, btnSize, 0x444444, alpha)
+      .setDepth(depth).setInteractive();
+    const upArrow = this.add.text(padCenterX, padCenterY - btnSize - gap, '▲', {
+      fontSize: '22px', color: '#FFFFFF',
+    }).setOrigin(0.5).setDepth(depth + 1).setAlpha(0.6);
+
+    // DOWN
+    const downBtn = this.add.rectangle(padCenterX, padCenterY + btnSize + gap, btnSize, btnSize, 0x444444, alpha)
+      .setDepth(depth).setInteractive();
+    const downArrow = this.add.text(padCenterX, padCenterY + btnSize + gap, '▼', {
+      fontSize: '22px', color: '#FFFFFF',
+    }).setOrigin(0.5).setDepth(depth + 1).setAlpha(0.6);
+
+    // LEFT
+    const leftBtn = this.add.rectangle(padCenterX - btnSize - gap, padCenterY, btnSize, btnSize, 0x444444, alpha)
+      .setDepth(depth).setInteractive();
+    const leftArrow = this.add.text(padCenterX - btnSize - gap, padCenterY, '◄', {
+      fontSize: '22px', color: '#FFFFFF',
+    }).setOrigin(0.5).setDepth(depth + 1).setAlpha(0.6);
+
+    // RIGHT
+    const rightBtn = this.add.rectangle(padCenterX + btnSize + gap, padCenterY, btnSize, btnSize, 0x444444, alpha)
+      .setDepth(depth).setInteractive();
+    const rightArrow = this.add.text(padCenterX + btnSize + gap, padCenterY, '►', {
+      fontSize: '22px', color: '#FFFFFF',
+    }).setOrigin(0.5).setDepth(depth + 1).setAlpha(0.6);
+
+    // D-pad event handlers
+    const setDir = (dir: Direction) => { this.touchDirection = dir; };
+    const clearDir = () => { this.touchDirection = Direction.NONE; };
+
+    upBtn.on('pointerdown', () => setDir(Direction.UP));
+    upBtn.on('pointerup', clearDir);
+    upBtn.on('pointerout', clearDir);
+
+    downBtn.on('pointerdown', () => setDir(Direction.DOWN));
+    downBtn.on('pointerup', clearDir);
+    downBtn.on('pointerout', clearDir);
+
+    leftBtn.on('pointerdown', () => setDir(Direction.LEFT));
+    leftBtn.on('pointerup', clearDir);
+    leftBtn.on('pointerout', clearDir);
+
+    rightBtn.on('pointerdown', () => setDir(Direction.RIGHT));
+    rightBtn.on('pointerup', clearDir);
+    rightBtn.on('pointerout', clearDir);
+
+    // === CRACK BUTTON (bottom-right) ===
+    const crackBtnX = CANVAS_WIDTH - 70;
+    const crackBtnY = CANVAS_HEIGHT - 80;
+
+    const crackBtn = this.add.circle(crackBtnX, crackBtnY, 36, 0xff00ff, alpha)
+      .setDepth(depth).setInteractive().setStrokeStyle(2, 0xff00ff, 0.4);
+    const crackLabel = this.add.text(crackBtnX, crackBtnY, '💎', {
+      fontSize: '28px',
+    }).setOrigin(0.5).setDepth(depth + 1).setAlpha(0.7);
+    const crackSubLabel = this.add.text(crackBtnX, crackBtnY + 24, 'CRACK', {
+      fontSize: '9px', fontFamily: 'monospace', color: '#FF00FF', fontStyle: 'bold',
+    }).setOrigin(0.5).setDepth(depth + 1).setAlpha(0.5);
+
+    crackBtn.on('pointerdown', () => {
+      this.smokeCrack();
+      crackBtn.setFillStyle(0xff00ff, 0.6);
+    });
+    crackBtn.on('pointerup', () => crackBtn.setFillStyle(0xff00ff, alpha));
+    crackBtn.on('pointerout', () => crackBtn.setFillStyle(0xff00ff, alpha));
   }
 
   private handleInput(): void {
+    // Keyboard input
     if (this.cursors.up.isDown || this.wasdKeys.W.isDown) {
       this.player.queuedDirection = Direction.UP;
     } else if (this.cursors.down.isDown || this.wasdKeys.S.isDown) {
@@ -1084,6 +1175,11 @@ export class GameScene extends Phaser.Scene {
       this.player.queuedDirection = Direction.LEFT;
     } else if (this.cursors.right.isDown || this.wasdKeys.D.isDown) {
       this.player.queuedDirection = Direction.RIGHT;
+    }
+
+    // Touch D-pad input
+    if (this.touchDirection !== Direction.NONE) {
+      this.player.queuedDirection = this.touchDirection;
     }
 
     // SPACE = smoke crack (only during sell phase, if you have some)

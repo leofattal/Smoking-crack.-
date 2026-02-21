@@ -195,10 +195,15 @@ export interface GunDef {
 
 export const GUNS: GunDef[] = [
   { id: 'fists', name: 'Bare Fists', emoji: '👊', cost: 0, drawWindow: 400, accuracy: 0.25, description: 'Better than nothing' },
+  { id: 'knife', name: 'Switchblade', emoji: '🔪', cost: 75, drawWindow: 450, accuracy: 0.3, description: 'Quick but risky' },
   { id: 'pistol', name: '9mm Pistol', emoji: '🔫', cost: 150, drawWindow: 600, accuracy: 0.5, description: 'Standard street piece' },
+  { id: 'revolver', name: '.44 Magnum', emoji: '💢', cost: 275, drawWindow: 550, accuracy: 0.6, description: 'Big iron on his hip' },
   { id: 'shotgun', name: 'Sawed-Off', emoji: '💥', cost: 400, drawWindow: 800, accuracy: 0.7, description: 'Spread makes it easier' },
-  { id: 'uzi', name: 'Uzi', emoji: '🔥', cost: 700, drawWindow: 1000, accuracy: 0.85, description: 'Spray and pray' },
-  { id: 'ak47', name: 'AK-47', emoji: '☠️', cost: 1200, drawWindow: 1200, accuracy: 0.95, description: 'One shot, one kill' },
+  { id: 'mac10', name: 'MAC-10', emoji: '🔥', cost: 550, drawWindow: 900, accuracy: 0.75, description: 'Compact & deadly' },
+  { id: 'uzi', name: 'Uzi', emoji: '⚡', cost: 700, drawWindow: 1000, accuracy: 0.85, description: 'Spray and pray' },
+  { id: 'ak47', name: 'AK-47', emoji: '☠️', cost: 1000, drawWindow: 1100, accuracy: 0.9, description: 'Street legend' },
+  { id: 'rpg', name: 'RPG', emoji: '🚀', cost: 1500, drawWindow: 1300, accuracy: 0.95, description: 'Overkill. Period.' },
+  { id: 'minigun', name: 'Minigun', emoji: '🌀', cost: 2500, drawWindow: 1500, accuracy: 0.99, description: 'You ARE the army' },
 ];
 
 // === SHOOTOUT LINES ===
