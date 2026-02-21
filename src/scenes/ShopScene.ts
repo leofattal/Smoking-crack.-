@@ -9,6 +9,14 @@ export class ShopScene extends Phaser.Scene {
   private content!: Phaser.GameObjects.Container;
   private contentHeight: number = 0;
 
+  // Touch scroll state
+  private dragStartY: number = 0;
+  private dragScrollStart: number = 0;
+  private isDragging: boolean = false;
+  private scrollVelocity: number = 0;
+  private lastPointerY: number = 0;
+  private lastMoveTime: number = 0;
+
   constructor() {
     super({ key: 'ShopScene' });
   }
@@ -93,15 +101,64 @@ export class ShopScene extends Phaser.Scene {
     y += Math.ceil(SKINS.length / COLS) * SKIN_H + 10;
 
     this.contentHeight = y;
+    this.isDragging = false;
+    this.scrollVelocity = 0;
+
+    const maxScroll = () => Math.max(0, this.contentHeight - (CANVAS_HEIGHT - 140));
+    const applyScroll = () => {
+      this.scrollY = Phaser.Math.Clamp(this.scrollY, 0, maxScroll());
+      this.content.y = 85 - this.scrollY;
+    };
 
     // Mouse wheel scrolling
     this.input.on('wheel', (_pointer: Phaser.Input.Pointer, _gx: number[], _gy: number[], _gz: number[], deltaY: number) => {
-      this.scrollY = Phaser.Math.Clamp(
-        this.scrollY + deltaY * 0.5,
-        0,
-        Math.max(0, this.contentHeight - (CANVAS_HEIGHT - 140)),
-      );
-      this.content.y = 85 - this.scrollY;
+      this.scrollVelocity = 0;
+      this.scrollY += deltaY * 0.5;
+      applyScroll();
+    });
+
+    // Touch / mouse drag scrolling
+    const DRAG_THRESHOLD = 8;
+
+    this.input.on('pointerdown', (pointer: Phaser.Input.Pointer) => {
+      this.dragStartY = pointer.y;
+      this.dragScrollStart = this.scrollY;
+      this.isDragging = false;
+      this.scrollVelocity = 0;
+      this.lastPointerY = pointer.y;
+      this.lastMoveTime = Date.now();
+    });
+
+    this.input.on('pointermove', (pointer: Phaser.Input.Pointer) => {
+      if (!pointer.isDown) return;
+      const dy = this.dragStartY - pointer.y;
+
+      // Start dragging once past threshold
+      if (!this.isDragging && Math.abs(dy) > DRAG_THRESHOLD) {
+        this.isDragging = true;
+      }
+
+      if (this.isDragging) {
+        // Track velocity for momentum
+        const now = Date.now();
+        const dt = now - this.lastMoveTime;
+        if (dt > 0) {
+          this.scrollVelocity = (this.lastPointerY - pointer.y) / dt * 16; // per-frame velocity
+        }
+        this.lastPointerY = pointer.y;
+        this.lastMoveTime = now;
+
+        this.scrollY = this.dragScrollStart + dy;
+        applyScroll();
+      }
+    });
+
+    this.input.on('pointerup', () => {
+      // If was dragging, keep momentum going
+      if (this.isDragging) {
+        // scrollVelocity is already set from pointermove
+      }
+      this.isDragging = false;
     });
 
     // === FIXED BOTTOM BAR with START NEXT DAY button ===
@@ -120,7 +177,8 @@ export class ShopScene extends Phaser.Scene {
 
     nextBtn.on('pointerover', () => nextBtn.setFillStyle(0x008800));
     nextBtn.on('pointerout', () => nextBtn.setFillStyle(0x006600));
-    nextBtn.on('pointerdown', () => {
+    nextBtn.on('pointerup', () => {
+      if (this.isDragging) return;
       this.registry.set('gameState', this.gameState);
       this.scene.start('GameScene');
     });
@@ -172,7 +230,8 @@ export class ShopScene extends Phaser.Scene {
       bg.setInteractive({ useHandCursor: true });
       bg.on('pointerover', () => bg.setFillStyle(0x282850));
       bg.on('pointerout', () => bg.setFillStyle(0x1c1c38));
-      bg.on('pointerdown', () => {
+      bg.on('pointerup', () => {
+        if (this.isDragging) return;
         if (this.gameState.cash < cost) { this.flashCash(); return; }
         this.gameState.cash -= cost;
         this.setLevel(def.id, currentLevel + 1);
@@ -208,7 +267,8 @@ export class ShopScene extends Phaser.Scene {
       bg.setInteractive({ useHandCursor: true });
       bg.on('pointerover', () => bg.setFillStyle(0x282850));
       bg.on('pointerout', () => bg.setFillStyle(0x1c1c38));
-      bg.on('pointerdown', () => {
+      bg.on('pointerup', () => {
+        if (this.isDragging) return;
         if (this.gameState.cash < tier.cost) { this.flashCash(); return; }
         this.gameState.cash -= tier.cost;
         this.gameState.advertisingTier = idx + 1;
@@ -250,7 +310,8 @@ export class ShopScene extends Phaser.Scene {
     bg.setInteractive({ useHandCursor: true });
     bg.on('pointerover', () => bg.setFillStyle(0x282850));
     bg.on('pointerout', () => bg.setFillStyle(equipped ? 0x2a2a44 : 0x1c1c38));
-    bg.on('pointerdown', () => {
+    bg.on('pointerup', () => {
+      if (this.isDragging) return;
       if (owned) {
         this.gameState.currentGun = gun.id;
         this.refreshShop();
@@ -307,13 +368,12 @@ export class ShopScene extends Phaser.Scene {
     bg.setInteractive({ useHandCursor: true });
     bg.on('pointerover', () => bg.setFillStyle(0x282850));
     bg.on('pointerout', () => bg.setFillStyle(selected ? 0x2a2a44 : 0x1c1c38));
-    bg.on('pointerdown', () => {
+    bg.on('pointerup', () => {
+      if (this.isDragging) return;
       if (owned) {
-        // Equip skin
         this.gameState.selectedSkin = skin.id;
         this.refreshShop();
       } else {
-        // Buy skin
         if (this.gameState.cash < skin.cost) { this.flashCash(); return; }
         this.gameState.cash -= skin.cost;
         this.gameState.ownedSkins.push(skin.id);
@@ -322,6 +382,24 @@ export class ShopScene extends Phaser.Scene {
         this.refreshShop();
       }
     });
+  }
+
+  // === MOMENTUM SCROLL ===
+  update(): void {
+    if (!this.isDragging && Math.abs(this.scrollVelocity) > 0.2) {
+      this.scrollY += this.scrollVelocity;
+      this.scrollVelocity *= 0.92; // friction
+      const maxScroll = Math.max(0, this.contentHeight - (CANVAS_HEIGHT - 140));
+      this.scrollY = Phaser.Math.Clamp(this.scrollY, 0, maxScroll);
+      this.content.y = 85 - this.scrollY;
+
+      // Stop at edges
+      if (this.scrollY <= 0 || this.scrollY >= maxScroll) {
+        this.scrollVelocity = 0;
+      }
+    } else if (!this.isDragging) {
+      this.scrollVelocity = 0;
+    }
   }
 
   // === STATE HELPERS ===
